@@ -6,9 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>BarTrender</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- C'EST ÇA QUI MANQUAIT : LE MOTEUR DE STYLE -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
       html {
-        background-color: #0f0505; /* Match app background */
+        background-color: #0f0505;
         height: 100%;
         width: 100%;
         overflow: hidden;
@@ -23,17 +27,16 @@
         height: 100%;
         width: 100%;
         display: flex;
-        justify-content: center; /* Center app on desktop */
+        justify-content: center;
       }
       #root {
         width: 100%;
         height: 100%;
-        max-width: 600px; /* Constrain width for mobile app feel on desktop */
+        max-width: 600px; /* On garde l'aspect app mobile sur PC */
         position: relative;
-        box-shadow: 0 0 50px rgba(0,0,0,0.5); /* Nice shadow on desktop */
+        box-shadow: 0 0 50px rgba(0,0,0,0.5);
       }
       
-      /* Reset max-width for mobile/tablet to use full screen space */
       @media (max-width: 768px) {
         #root {
             max-width: 100%;
@@ -41,28 +44,12 @@
         }
       }
 
-      /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #0f0505; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #3d1a1a; 
-        border-radius: 10px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #ec1337; 
-      }
-      
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0f0505; }
+      ::-webkit-scrollbar-thumb { background: #3d1a1a; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #ec1337; }
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   <script type="importmap">
 {
