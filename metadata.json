@@ -1,0 +1,7 @@
+{
+  "name": "BarTrender",
+  "description": "An intelligent cocktail companion that helps you find and mix the perfect drink based on ingredients, names, or vibes.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
