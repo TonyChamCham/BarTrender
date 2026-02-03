@@ -8,7 +8,7 @@ import {
   BartenderPersona, PERSONA_DATA, getSeasonalCocktails, sanitizeKey, getAiMixes, generateImage
 } from './services/geminiService';
 import { FirebaseService } from './services/firebaseService';
-import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, ArrowDown, AlertTriangle } from 'lucide-react';
+import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, AlertTriangle } from 'lucide-react';
 
 // Modulized Components
 import { CocktailCard } from './components/CocktailCard';
@@ -119,19 +119,21 @@ export default function App() {
   const [curatedList, setCuratedList] = useState<CocktailSummary[]>([]); 
   const [seasonalList, setSeasonalList] = useState<CocktailSummary[]>([]);
   const [aiMixesList, setAiMixesList] = useState<CocktailSummary[]>([]);
-  const [seasonalCache, setSeasonalCache] = useState<Record<string, CocktailSummary[]>>({});
   const [searchResults, setSearchResults] = useState<CocktailSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // STATES POUR LA GESTION DE L'INFINITE SCROLL
   const [isSeasonalLoading, setIsSeasonalLoading] = useState(false);
-  const [seasonalError, setSeasonalError] = useState(false); // NEW: Track API errors
+  const [seasonalError, setSeasonalError] = useState(false);
+  const [hasMoreSeasonal, setHasMoreSeasonal] = useState(true);
   const [displayCount, setDisplayCount] = useState(8);
+  
   const [mixingStep, setMixingStep] = useState(0);
   const [activeTab, setActiveTab] = useState<HomeTab>('seasonal');
   const [seasonalOffset, setSeasonalOffset] = useState(0); 
-  const [hasMoreSeasonal, setHasMoreSeasonal] = useState(true); // NEW: Stop infinite loop
   
   const [chatHistories, setChatHistories] = useState<Record<BartenderPersona, any[]>>(() => {
     const initial: any = {};
@@ -238,6 +240,7 @@ export default function App() {
                   } 
                   
                   // Logic for Seasonal Infinite Scroll (Fetch Next Month)
+                  // CRITICAL CHECK: hasMoreSeasonal must be true AND no error
                   else if (activeTab === 'seasonal' && hasMoreSeasonal && !seasonalError) {
                       if (displayCount < currentList.length) {
                            setDisplayCount(prev => prev + 6);
@@ -346,6 +349,7 @@ export default function App() {
         
         if (list.length === 0) {
             setSeasonalError(true);
+            setHasMoreSeasonal(false); // STOP LOOP
         } else {
             setSeasonalList(list);
         }
@@ -362,6 +366,7 @@ export default function App() {
     if (newItems.length === 0) {
         setHasMoreSeasonal(false);
         setIsSeasonalLoading(false);
+        // Do NOT set error here, just stop loading more
         return; 
     }
     
