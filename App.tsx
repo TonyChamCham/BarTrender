@@ -8,7 +8,7 @@ import {
   BartenderPersona, PERSONA_DATA, getSeasonalCocktails, sanitizeKey, getAiMixes, generateImage
 } from './services/geminiService';
 import { FirebaseService } from './services/firebaseService';
-import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, ArrowDown } from 'lucide-react';
+import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, ArrowDown, AlertTriangle } from 'lucide-react';
 
 // Modulized Components
 import { CocktailCard } from './components/CocktailCard';
@@ -59,7 +59,7 @@ const getSeasonalPrompt = (title: string) => {
 };
 
 // Divider Component using SmartImage - FULL WIDTH/HEIGHT DESIGN
-const SeasonDivider = ({ title, devMode }: { title: string, devMode: boolean }) => {
+const SeasonDivider: React.FC<{ title: string, devMode: boolean }> = ({ title, devMode }) => {
     const prompt = getSeasonalPrompt(title);
     const cacheKey = `seasonal/divider/${sanitizeKey(title)}`;
 
@@ -126,10 +126,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isSeasonalLoading, setIsSeasonalLoading] = useState(false);
+  const [seasonalError, setSeasonalError] = useState(false); // NEW: Track API errors
   const [displayCount, setDisplayCount] = useState(8);
   const [mixingStep, setMixingStep] = useState(0);
   const [activeTab, setActiveTab] = useState<HomeTab>('seasonal');
   const [seasonalOffset, setSeasonalOffset] = useState(0); 
+  const [hasMoreSeasonal, setHasMoreSeasonal] = useState(true); // NEW: Stop infinite loop
   
   const [chatHistories, setChatHistories] = useState<Record<BartenderPersona, any[]>>(() => {
     const initial: any = {};
@@ -236,7 +238,7 @@ export default function App() {
                   } 
                   
                   // Logic for Seasonal Infinite Scroll (Fetch Next Month)
-                  else if (activeTab === 'seasonal') {
+                  else if (activeTab === 'seasonal' && hasMoreSeasonal && !seasonalError) {
                       if (displayCount < currentList.length) {
                            setDisplayCount(prev => prev + 6);
                       } else if (!isSeasonalLoading) {
@@ -257,7 +259,7 @@ export default function App() {
       
       if (loadMoreRef.current) observer.observe(loadMoreRef.current);
       return () => observer.disconnect();
-  }, [loadMoreRef, displayCount, activeTab, seasonalList, curatedList, aiMixesList, favorites, isSeasonalLoading, seasonalOffset]);
+  }, [loadMoreRef, displayCount, activeTab, seasonalList, curatedList, aiMixesList, favorites, isSeasonalLoading, seasonalOffset, hasMoreSeasonal, seasonalError]);
 
 
   const handleToggleFav = (cocktail: CocktailSummary) => {
@@ -337,14 +339,31 @@ export default function App() {
         setSeasonalList([]);
         setSeasonalOffset(0);
         setIsSeasonalLoading(true);
+        setHasMoreSeasonal(true);
+        setSeasonalError(false);
+        
         const list = await getSeasonalCocktails(isShotsMode, isNonAlcoholic, 0);
-        setSeasonalList(list);
+        
+        if (list.length === 0) {
+            setSeasonalError(true);
+        } else {
+            setSeasonalList(list);
+        }
         setIsSeasonalLoading(false);
         return;
     }
 
+    if (!hasMoreSeasonal) return;
+
     setIsSeasonalLoading(true);
     const newItems = await getSeasonalCocktails(isShotsMode, isNonAlcoholic, offset);
+    
+    // CRITICAL FIX: If API fails or returns empty, stop the loop
+    if (newItems.length === 0) {
+        setHasMoreSeasonal(false);
+        setIsSeasonalLoading(false);
+        return; 
+    }
     
     // Create Divider
     const nextMonthName = getMonthName(offset);
@@ -625,6 +644,18 @@ export default function App() {
       >
         {view === AppView.HOME && (
           <div className="px-4 pt-[210px] landscape:pt-[115px] lg:pt-[240px] lg:landscape:pt-[210px] pb-20 w-full mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:landscape:grid-cols-4 gap-x-6 gap-y-3">
+            
+            {seasonalError && activeTab === 'seasonal' && (
+                <div className="col-span-full py-10 flex flex-col items-center text-center px-6">
+                    <AlertTriangle size={32} className="text-orange-500 mb-2" />
+                    <p className="text-white font-bold mb-1">AI Connection Issue</p>
+                    <p className="text-stone-500 text-xs max-w-xs">
+                        The AI bartender is taking a break (Key not found or quota exceeded). <br/>
+                        Please check your Vercel Environment Variable: <code className="bg-stone-800 px-1 rounded text-orange-300">VITE_API_KEY</code>
+                    </p>
+                </div>
+            )}
+
             {isSeasonalLoading && activeTab === 'seasonal' && seasonalOffset === 0 ? (
                 <div className="py-20 text-center col-span-full"><Loader2 className="animate-spin text-[#ec1337] mx-auto mb-4" size={40} /><p className="text-xs font-bold uppercase text-stone-500">Organic Curation...</p></div>
             ) : 
