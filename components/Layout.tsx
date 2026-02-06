@@ -2,6 +2,9 @@
 import React from 'react';
 import { Wine, ArrowLeft, Heart, Code2, Database } from 'lucide-react';
 
+// SET THIS TO TRUE IF YOU WANT THE DEV TOOLS BACK
+const SHOW_DEV_TOOLS = false;
+
 interface LayoutProps {
   children: React.ReactNode;
   title?: string;
@@ -67,6 +70,14 @@ export const Layout: React.FC<LayoutProps> = ({
       if (isNonAlcoholic) return `${baseUrl}260111_barmanAI_icon_no-alc.png${suffix}`;
       if (isShotsMode) return `${baseUrl}260111_barmanAI_icon_shot.png${suffix}`;
       return `${baseUrl}260111_barmanAI_icon.png${suffix}`;
+  };
+
+  // Helper for Halo Color Logic - Utilisation d'ombres centrées (0 0 15px) au lieu de l'ombre par défaut décalée
+  const getHaloColorClass = () => {
+      if (isNonAlcoholic && isShotsMode) return "shadow-[0_0_15px_rgba(23,182,127,0.6)] border-[#17B67F]";
+      if (isNonAlcoholic) return "shadow-[0_0_15px_rgba(23,182,127,0.6)] border-[#17B67F]";
+      if (isShotsMode) return "shadow-[0_0_15px_rgba(243,65,95,0.6)] border-[#F3415F]";
+      return "shadow-[0_0_15px_rgba(236,19,55,0.6)] border-[#ec1337]"; // Default Red Glow
   };
 
   const ModeBarCompact = () => (
@@ -155,21 +166,23 @@ export const Layout: React.FC<LayoutProps> = ({
                         {onOpenChat && (
                             <button 
                                 onClick={onOpenChat}
-                                className="hidden landscape:flex lg:landscape:hidden w-12 h-57 rounded-lg bg-[#1f0a0a] border border-[#ec1337] items-center justify-center overflow-hidden active:scale-95 mr-2 shadow-[0_0_20px_#ec1337]"
+                                className={`hidden landscape:flex lg:landscape:hidden w-15 h-[55px] rounded-lg bg-[#1f0a0a] border items-center justify-center overflow-hidden active:scale-95 mr-2 ${getHaloColorClass()}`}
                             >
                                 <img src={getAiBarmanIcon()} alt="AI" className="w-full h-full object-cover object-bottom scale-110" />
                             </button>
                         )}
 
-                        {devMode && (
+                        {devMode && SHOW_DEV_TOOLS && (
                             <button onClick={onOpenCatalog} className="p-2 rounded-full text-stone-300 hover:text-emerald-500 transition-colors">
                                 <Database size={18} strokeWidth={2.5} />
                             </button>
                         )}
                         
-                        <button onClick={onToggleDevMode} className={`p-2 rounded-full transition-colors landscape:hidden lg:landscape:block ${devMode ? 'text-red-400' : 'text-stone-500 hover:text-stone-300'}`}>
-                            <Code2 size={16} />
-                        </button>
+                        {SHOW_DEV_TOOLS && (
+                            <button onClick={onToggleDevMode} className={`p-2 rounded-full transition-colors landscape:hidden lg:landscape:block ${devMode ? 'text-red-400' : 'text-stone-500 hover:text-stone-300'}`}>
+                                <Code2 size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -194,9 +207,9 @@ export const Layout: React.FC<LayoutProps> = ({
                             </div>
                         )}
                     </div>
-                    {/* HALO EFFECT (Static now) */}
+                    {/* HALO EFFECT (Dynamic Color) */}
                     {onOpenChat && (
-                        <button onClick={onOpenChat} className={`w-18 h-[70px] rounded-2xl flex flex-col items-center justify-center active:scale-95 bg-[#1f0a0a] border border-[#ec1337] shadow-[0_0_20px_#ec1337] hover:scale-105 transition-all group overflow-hidden flex-shrink-0 z-10`}>
+                        <button onClick={onOpenChat} className={`w-[62px] h-[70px] rounded-2xl flex flex-col items-center justify-center active:scale-95 bg-[#1f0a0a] border hover:scale-105 transition-all group overflow-hidden flex-shrink-0 z-10 ${getHaloColorClass()}`}>
                             <img src={getAiBarmanIcon()} alt="AI" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "https://firebasestorage.googleapis.com/v0/b/mixmaster-ai-2fe73.firebasestorage.app/o/images%2Ficons%2F260111_barmanAI_icon.png?alt=media"; }} />
                         </button>
                     )}

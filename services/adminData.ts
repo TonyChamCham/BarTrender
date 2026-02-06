@@ -347,7 +347,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "The Velvet Poet",
     description: "A sophisticated blend of aged rum, fig syrup, and walnut bitters, smoked with cinnamon bark.",
-    tags: ["AI Creation", "Elegant", "Smoky"],
+    tags: ["AI Creation", "Elegant", "Smoky", "Winter"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 2400
@@ -355,7 +355,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Saffron Sunset",
     description: "Gin infused with saffron, apricot liqueur, lemon juice, and an egg white foam.",
-    tags: ["AI Creation", "Floral", "Complex"],
+    tags: ["AI Creation", "Floral", "Complex", "Summer"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 1850
@@ -363,7 +363,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Midnight in Tokyo",
     description: "Japanese whisky, yuzu juice, matcha syrup, and a splash of soda water.",
-    tags: ["AI Creation", "Refreshing", "Whiskey"],
+    tags: ["AI Creation", "Refreshing", "Whiskey", "Spring"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 3100
@@ -371,7 +371,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Scarlet Empress",
     description: "Hibiscus-infused vodka, pomegranate molasses, lime, and rose water.",
-    tags: ["AI Creation", "Floral", "Red"],
+    tags: ["AI Creation", "Floral", "Red", "Valentine"],
     specialLabel: "AI CREATION",
     isPremium: false,
     likes: 1500
@@ -379,7 +379,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Golden Hour Sour",
     description: "Reposado Tequila, agave nectar, grapefruit juice, and a pinch of smoked salt.",
-    tags: ["AI Creation", "Citrus", "Tequila"],
+    tags: ["AI Creation", "Citrus", "Tequila", "Summer"],
     specialLabel: "AI CREATION",
     isPremium: false,
     likes: 2200
@@ -387,7 +387,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Emerald City",
     description: "Green Chartreuse, gin, maraschino liqueur, and lime. A modern twist on the Last Word.",
-    tags: ["AI Creation", "Herbal", "Strong"],
+    tags: ["AI Creation", "Herbal", "Strong", "Spring"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 4100
@@ -395,7 +395,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Smoked Honeycomb",
     description: "Mezcal, honeycomb wax, ginger syrup, and lemon. Served with a piece of honeycomb.",
-    tags: ["AI Creation", "Smoky", "Sweet"],
+    tags: ["AI Creation", "Smoky", "Sweet", "Autumn"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 2800
@@ -403,7 +403,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "White Linen",
     description: "Cucumber, gin, elderflower liqueur, and lemon. Clean, crisp, and refreshing.",
-    tags: ["AI Creation", "Refreshing", "Gin"],
+    tags: ["AI Creation", "Refreshing", "Gin", "Summer"],
     specialLabel: "AI CREATION",
     isPremium: false,
     likes: 1900
@@ -411,7 +411,7 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
   {
     name: "Coco Chanel",
     description: "Coconut washed vodka, dry vermouth, and a twist of lemon. Pure minimalism.",
-    tags: ["AI Creation", "Creamy", "Classy"],
+    tags: ["AI Creation", "Creamy", "Classy", "Winter"],
     specialLabel: "AI CREATION",
     isPremium: true,
     likes: 3500
@@ -423,6 +423,87 @@ export const ADMIN_AI_MIXES: CocktailSummary[] = [
     specialLabel: "AI CREATION",
     isPremium: false,
     likes: 1200
+  },
+  // --- NEW ADDITIONS FOR SEASONAL COVERAGE ---
+  {
+    name: "Sakura Breeze",
+    description: "A delicate Spring mix of Roku gin, cherry blossom syrup, and yuzu tonic.",
+    tags: ["AI Creation", "Floral", "Spring", "Light"],
+    specialLabel: "AI CREATION",
+    isPremium: false,
+    likes: 1600
+  },
+  {
+    name: "Solar Flare",
+    description: "Blood orange juice, spicy tequila, jalapeño slices and agave. Hot and cold.",
+    tags: ["AI Creation", "Spicy", "Summer", "Tequila"],
+    specialLabel: "AI CREATION",
+    isPremium: true,
+    likes: 2100
+  },
+  {
+    name: "Nordic Frost",
+    description: "Aquavit, blue curacao, white cacao liqueur and cream. A winter wonderland.",
+    tags: ["AI Creation", "Creamy", "Winter", "Frozen"],
+    specialLabel: "AI CREATION",
+    isPremium: true,
+    likes: 2900
+  },
+  {
+    name: "Maple Pecan Old Fashioned",
+    description: "Butter-washed bourbon, maple syrup, and pecan bitters. Cozy autumn vibes.",
+    tags: ["AI Creation", "Cozy", "Autumn", "Bourbon"],
+    specialLabel: "AI CREATION",
+    isPremium: true,
+    likes: 3300
+  },
+  {
+    name: "Lavender Haze",
+    description: "Empress gin, lavender honey syrup, lemon, and egg white foam. Purple perfection.",
+    tags: ["AI Creation", "Floral", "Spring", "Gin"],
+    specialLabel: "AI CREATION",
+    isPremium: true,
+    likes: 4500
+  },
+  {
+    name: "Electric Melon",
+    description: "Midori, vodka, sour mix and sparkling water. Neon green summer energy.",
+    tags: ["AI Creation", "Party", "Summer", "Sweet"],
+    specialLabel: "AI CREATION",
+    isPremium: false,
+    likes: 1800
+  },
+  {
+    name: "Spiced Pumpkin Flip",
+    description: "Dark rum, pumpkin spice syrup, whole egg and nutmeg dust.",
+    tags: ["AI Creation", "Creamy", "Autumn", "Halloween"],
+    specialLabel: "AI CREATION",
+    isPremium: false,
+    likes: 2600
+  },
+  {
+    name: "Glacier Mint",
+    description: "White rum, peppermint schnapps, lime and soda. Icy fresh.",
+    tags: ["AI Creation", "Minty", "Winter", "Refreshing"],
+    specialLabel: "AI CREATION",
+    isPremium: false,
+    likes: 1400
+  },
+  {
+    name: "Rosemary Paloma",
+    description: "Grapefruit soda, tequila, and a burnt rosemary sprig garnish.",
+    tags: ["AI Creation", "Herbal", "Spring", "Tequila"],
+    specialLabel: "AI CREATION",
+    isPremium: false,
+    likes: 2300
+  },
+  {
+    name: "Campfire S'mores",
+    description: "Marshmallow vodka, chocolate liqueur, cream, with a graham cracker rim.",
+    tags: ["AI Creation", "Sweet", "Autumn", "Dessert"],
+    specialLabel: "AI CREATION",
+    isPremium: true,
+    likes: 3800
   }
 ];
 

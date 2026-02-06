@@ -18,6 +18,14 @@ interface MixingGuideProps {
   onShare: (name: string) => void;
 }
 
+const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        if (type === 'light') navigator.vibrate(10);
+        else if (type === 'medium') navigator.vibrate(25);
+        else if (type === 'heavy') navigator.vibrate(50);
+    }
+};
+
 export const MixingGuide: React.FC<MixingGuideProps> = ({
   selectedCocktail,
   mixingStep,
@@ -41,7 +49,7 @@ export const MixingGuide: React.FC<MixingGuideProps> = ({
         <p className="text-stone-400 mb-8 max-w-[200px]">Your {selectedCocktail.name} is ready. Enjoy your drink!</p>
         <div className="w-full max-w-md space-y-3">
           <Button fullWidth onClick={() => onShare(selectedCocktail.name)} variant="secondary"><Share2 size={20} className="mr-2" /> Share Result</Button>
-          <Button fullWidth onClick={onFinish}>Back to Home</Button>
+          <Button fullWidth onClick={() => { triggerHaptic('medium'); onFinish(); }}>Back to Home</Button>
         </div>
       </div>
     );
@@ -118,14 +126,14 @@ export const MixingGuide: React.FC<MixingGuideProps> = ({
         {/* Navigation Buttons */}
         <div className="flex gap-4 flex-shrink-0">
             <button 
-                onClick={() => mixingStep === 0 ? onBack() : onSetStep(mixingStep - 1)} 
-                className="h-16 w-20 rounded-2xl bg-[#1f0a0a] border border-[#3d1a1a] text-stone-400 flex items-center justify-center hover:bg-[#2a1010] hover:text-white active:scale-95 transition-all shadow-lg"
+                onClick={() => { triggerHaptic('light'); mixingStep === 0 ? onBack() : onSetStep(mixingStep - 1); }} 
+                className="h-16 w-16 rounded-full bg-[#1f0a0a] border border-[#3d1a1a] text-stone-400 flex items-center justify-center hover:bg-[#2a1010] hover:text-white active:scale-95 transition-all shadow-lg"
             >
                 <ChevronLeft size={28} />
             </button>
             <Button 
                 fullWidth 
-                onClick={() => onSetStep(mixingStep + 1)} 
+                onClick={() => { triggerHaptic('medium'); onSetStep(mixingStep + 1); }} 
                 className="flex-1 h-16 text-xl rounded-2xl shadow-lg shadow-[#ec1337]/20"
             >
                 {mixingStep === selectedCocktail.steps.length - 1 ? 'Finish Drink' : 'Next Step'}

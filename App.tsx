@@ -58,13 +58,23 @@ const getSeasonalPrompt = (title: string) => {
     return "Elegant high-end cocktail bar, cinematic lighting, atmospheric, blurred background";
 };
 
+// HAPTIC FEEDBACK HELPER
+const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        if (type === 'light') navigator.vibrate(10);
+        else if (type === 'medium') navigator.vibrate(25);
+        else if (type === 'heavy') navigator.vibrate(50);
+    }
+};
+
 // Divider Component using SmartImage - FULL WIDTH/HEIGHT DESIGN
+// Hauteur augmentée à h-60 pour plus d'impact (+40-50%)
 const SeasonDivider: React.FC<{ title: string, devMode: boolean }> = ({ title, devMode }) => {
     const prompt = getSeasonalPrompt(title);
     const cacheKey = `seasonal/divider/${sanitizeKey(title)}`;
 
     return (
-        <div className="col-span-1 sm:col-span-2 lg:col-span-4 w-full h-40 relative overflow-hidden rounded-3xl shadow-2xl my-6 group">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4 w-full h-60 relative overflow-hidden rounded-3xl shadow-2xl my-6 group">
              {/* Full Background Image */}
              <div className="absolute inset-0 w-full h-full">
                 <SmartImage 
@@ -95,8 +105,8 @@ export default function App() {
   const [splashFading, setSplashFading] = useState(false);
   const [logoAnimating, setLogoAnimating] = useState(true);
   
-  // New State for Age Gate
-  const [showAgeGate, setShowAgeGate] = useState(false);
+  // FIX: Start true immediately to be behind splash screen (no flicker)
+  const [showAgeGate, setShowAgeGate] = useState(true);
   
   const [viewStack, setViewStack] = useState<AppView[]>([AppView.HOME]);
   const view = viewStack[viewStack.length - 1];
@@ -160,8 +170,6 @@ export default function App() {
     const timerFade = setTimeout(() => setSplashFading(true), 2500);
     const timerRemove = setTimeout(() => {
         setShowSplash(false);
-        // Check if we need to show age gate (could use localstorage to show only once, but for hackathon demo showing it every time is safer/cleaner)
-        setShowAgeGate(true);
     }, 3200);
     return () => { clearTimeout(timerAnim); clearTimeout(timerFade); clearTimeout(timerRemove); };
   }, []);
@@ -266,6 +274,7 @@ export default function App() {
 
 
   const handleToggleFav = (cocktail: CocktailSummary) => {
+    triggerHaptic('medium'); // HAPTIC ON FAV
     setFavorites(prev => {
         const isAlreadyFav = prev.some(f => f.name === cocktail.name);
         const increment = isAlreadyFav ? -1 : 1;
@@ -306,6 +315,7 @@ export default function App() {
   };
 
   const handleToggleNonAlcoholic = () => {
+    triggerHaptic('light'); // HAPTIC
     const newVal = !isNonAlcoholic;
     setIsNonAlcoholic(newVal);
     // IMMEDIATE CLEANUP
@@ -318,6 +328,7 @@ export default function App() {
   };
 
   const handleToggleShotsMode = () => {
+    triggerHaptic('light'); // HAPTIC
     const newVal = !isShotsMode;
     setIsShotsMode(newVal);
     // IMMEDIATE CLEANUP
@@ -386,6 +397,7 @@ export default function App() {
   };
 
   const handleShare = async (cocktailName: string) => {
+    triggerHaptic('light'); // HAPTIC
     const text = `Check out this amazing cocktail I found on BarTrender: ${cocktailName}! 🍸✨`;
     const url = window.location.href;
     try {
@@ -463,12 +475,14 @@ export default function App() {
     try {
       const response = await chatWithBartender(updated, text, bartenderPersona, isNonAlcoholic, isShotsMode);
       setChatHistories(prev => ({ ...prev, [bartenderPersona]: [...updated, { role: 'model', text: response.text, suggestionName: response.suggestionName }] }));
+      triggerHaptic('light'); // HAPTIC ON RESPONSE
     } catch (err) {
       setChatHistories(prev => ({ ...prev, [bartenderPersona]: [...updated, { role: 'model', text: "Service unavailable." }] }));
     } finally { setIsTyping(false); }
   };
 
   const handlePaywallSuccess = () => {
+    triggerHaptic('heavy'); // HAPTIC SUCCESS
     setIsSubscribed(true);
     popView(); 
     if (pendingCocktailSummary) {
@@ -501,11 +515,13 @@ export default function App() {
     setSearchQuery("Analyzing image...");
     setViewStack([AppView.HOME, AppView.SEARCH]);
     const results = await identifyCocktail(base64, isNonAlcoholic, isShotsMode);
+    triggerHaptic('medium'); // HAPTIC
     setSearchResults(results);
     setIsLoading(false);
   };
 
   const capturePhoto = () => {
+    triggerHaptic('heavy'); // HAPTIC SHUTTER
     const canvas = document.createElement('canvas');
     if (videoRef.current) {
       canvas.width = videoRef.current.videoWidth;
@@ -566,6 +582,7 @@ export default function App() {
 
   const handleTabChange = (newTab: HomeTab) => {
       if (activeTab === newTab) return;
+      triggerHaptic('light'); // HAPTIC TAB CHANGE
       const container = getScrollContainer();
       if (container) { scrollPositionsRef.current[activeTab] = container.scrollTop; }
       setActiveTab(newTab);
@@ -625,7 +642,7 @@ export default function App() {
         </div>
       )}
       
-      {showAgeGate && !showSplash && (
+      {showAgeGate && (
         <AgeGate onEnter={() => setShowAgeGate(false)} />
       )}
       
@@ -648,7 +665,8 @@ export default function App() {
         hideHeader={view === AppView.CAMERA}
       >
         {view === AppView.HOME && (
-          <div className="px-4 pt-[210px] landscape:pt-[115px] lg:pt-[240px] lg:landscape:pt-[210px] pb-20 w-full mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:landscape:grid-cols-4 gap-x-6 gap-y-3">
+          // Grid Adjustment: lg:grid-cols-3 instead of 4, XL stays 4.
+          <div className="px-4 pt-[210px] landscape:pt-[115px] lg:pt-[240px] lg:landscape:pt-[210px] pb-20 w-full mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-3">
             
             {seasonalError && activeTab === 'seasonal' && (
                 <div className="col-span-full py-10 flex flex-col items-center text-center px-6">

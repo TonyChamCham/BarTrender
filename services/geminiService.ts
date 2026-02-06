@@ -5,7 +5,13 @@ import { FirebaseService } from "./firebaseService";
 import { CacheService } from "./storageService"; 
 import { ADMIN_CURATED_LIST, ADMIN_SHOTS_LIST, ADMIN_COCKTAIL_DB, ADMIN_AI_MIXES } from "./adminData";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// --- CONFIGURATION AI STUDIO STANDARD ---
+// C'est la seule méthode sûre pour partager sur AI Studio.
+// Google remplacera automatiquement ceci par la clé de l'utilisateur ou un proxy sécurisé.
+const API_KEY = process.env.API_KEY; 
+// ----------------------------------------
+
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 // Nomenclature stricte
 export const sanitizeKey = (key: string) => {
@@ -204,7 +210,7 @@ export const PERSONA_DATA: Record<BartenderPersona, { name: string, style: strin
         name: "Grub", 
         style: "Rough, Grimy & Post-Apocalyptic", 
         instruction: "STYLE: You are 'Grub'. A big, rough wasteland bartender. Tone: gruff, darkly humorous, direct. You’ve seen things. You mix drinks with whatever survived the apocalypse. Surprisingly helpful once people get past the smell.", 
-        welcomeMessage: "Name’s Grub. Don’t mind the dust or the smell — both add flavor. Tell me what kinda drink you’re huntin’ for.", 
+        welcomeMessage: "Name’s Grub. Don’t mind the dust or the smell - both add flavor. Tell me what kinda drink you’re huntin’ for.", 
         imagePrompt: "Gritty portrait of Grub, a large rough wasteland bartender in a post-apocalyptic bar. Dirty apron, scars, makeshift tools, rusty metal bar, dim toxic lighting." 
     }
 };
@@ -348,9 +354,11 @@ export const getSeasonalCocktails = async (isShotsMode: boolean = false, isNonAl
     const month = now.getMonth(); 
     const monthName = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month];
     
-    const prompt = `Suggest 8 cocktails for ${monthName}. 
+    // CHANGE: Ask for 20 cocktails instead of 8 for a better infinite scroll experience
+    const prompt = `Suggest 20 distinctive cocktails for ${monthName}. 
     ${isNonAlcoholic ? 'MOCKTAILS ONLY.' : ''} ${isShotsMode ? 'SHOTS ONLY.' : ''}
     
+    Provide a comprehensive list for this season.
     Think about the weather, holidays (e.g. Valentines, Halloween, Christmas, Summer heat) occurring in ${monthName}.
     Assign 'specialLabel' matching the event/season (e.g. SPRING, SUMMER, VALENTINES).`;
     
@@ -362,10 +370,6 @@ export const getSeasonalCocktails = async (isShotsMode: boolean = false, isNonAl
         });
         
         let list: CocktailSummary[] = response.text ? JSON.parse(response.text) : [];
-        
-        // Inject Divider Info into the first item or handle via return struct. 
-        // Better: We return clean list, and App.tsx appends divider.
-        // Actually, let's just tag the items with the month if needed, but App.tsx handles the layout.
         
         localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: new Date().getTime(), list }));
         return list;
@@ -400,7 +404,9 @@ export const getCocktailDetails = async (name: string, isNonAlcoholic: boolean =
   } catch (e) {}
   
   const mod = isNonAlcoholic ? "MOCKTAIL version." : isShotsMode ? "Shot version." : "";
-  const prompt = `Recipe for "${name}". ${mod}. STRICT: Use US Units (oz).`;
+  // ENFORCING INGREDIENT SUBSTITUTION IN PROMPT
+  const extraInstruction = isNonAlcoholic ? "IMPORTANT: If this is a Virgin/Mocktail version, REPLACE alcoholic ingredients with non-alcoholic spirits/syrups/juices. DO NOT just remove them. Ensure the drink remains balanced and flavorful." : "";
+  const prompt = `Recipe for "${name}". ${mod}. STRICT: Use US Units (oz). ${extraInstruction}`;
   
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -472,7 +478,13 @@ export const getAiMixes = async (isShotsMode: boolean = false, isNonAlcoholic: b
         if (list.length < 4) list = [...ADMIN_AI_MIXES];
     }
     if (isNonAlcoholic) {
-        return list.map(c => ({ ...c, name: `Virgin ${c.name}`, description: c.description.replace(/vodka|gin|rum|whiskey|tequila/gi, "botanical spirit alternative"), tags: ['NO ALCOHOL', ...c.tags] }));
+        return list.map(c => ({ 
+            ...c, 
+            name: `Virgin ${c.name}`, 
+            // IMPROVED REGEX TO CATCH MORE ALCOHOL TYPES
+            description: c.description.replace(/vodka|gin|rum|whiskey|tequila|liqueur|vermouth|cognac|brandy|mezcal|campari|aperol|pisco/gi, "non-alcoholic alternative"), 
+            tags: ['NO ALCOHOL', ...c.tags] 
+        }));
     }
     return list;
 };
@@ -488,7 +500,7 @@ export const generateImage = async (prompt: string, cacheKey: string, forceRefre
   const enhancedPrompt = `${prompt}. Professional photography, high-end studio lighting. NO TEXT, NO LOGOS.`;
   return imageQueue.add(async () => {
     try {
-      const currentAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const currentAi = new GoogleGenAI({ apiKey: API_KEY });
       const contents: any = { parts: [{ text: enhancedPrompt }] };
       if (sourceImageBase64 && modelName === 'gemini-2.5-flash-image') {
           const cleanBase64 = await ensureBase64(sourceImageBase64);
@@ -514,7 +526,7 @@ export const generateBartenderVideo = async (persona: BartenderPersona, customPr
       const hasKey = await (window as any).aistudio.hasSelectedApiKey();
       if (!hasKey) { await (window as any).aistudio.openSelectKey(); }
   }
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const prompt = customPrompt || `${PERSONA_DATA[persona].imagePrompt}. Cinemagraph style, seamless loop. Subtle breathing motion, ambient bar lighting moving, cinematic idle loop, 4k, slow movement. No sudden moves. Frozen background.`;
   try {
       let operation;
@@ -540,6 +552,6 @@ export const generateBartenderVideo = async (persona: BartenderPersona, customPr
           operation = await ai.operations.getVideosOperation({ operation: operation });
       }
       const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-      return videoUri ? `${videoUri}&key=${process.env.API_KEY}` : null;
+      return videoUri ? `${videoUri}&key=${API_KEY}` : null;
   } catch (e) { return null; }
 };

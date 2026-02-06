@@ -3,11 +3,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    
+    <!-- PWA & MOBILE FEEL -->
+    <meta name="theme-color" content="#0f0505" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BarTrender" />
+    
     <title>BarTrender</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- C'EST ÇA QUI MANQUAIT : LE MOTEUR DE STYLE -->
+    <!-- MOTEUR DE STYLE (Tailwind CDN) - CRITIQUE POUR LE DESIGN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
@@ -16,6 +23,7 @@
         height: 100%;
         width: 100%;
         overflow: hidden;
+        -webkit-tap-highlight-color: transparent; /* Enlève le flash gris au clic sur mobile */
       }
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -28,11 +36,11 @@
         width: 100%;
         display: flex;
         justify-content: center;
+        overscroll-behavior-y: none; /* Empêche le rebond élastique de page sur iOS */
       }
       #root {
         width: 100%;
         height: 100%;
-        max-width: 600px; /* On garde l'aspect app mobile sur PC */
         position: relative;
         box-shadow: 0 0 50px rgba(0,0,0,0.5);
       }
@@ -51,17 +59,22 @@
       .hide-scrollbar::-webkit-scrollbar { display: none; }
       .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-  <script type="importmap">
+    <!-- IMPORTMAP FIXE: Firebase via GSTATIC pour stabilité parfaite -->
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react/": "https://esm.sh/react@18.2.0/",
     "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "firebase/": "https://esm.sh/firebase@^12.8.0/",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3"
+    "lucide-react": "https://esm.sh/lucide-react@^0.344.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+    "firebase/storage": "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+    "vite": "https://esm.sh/vite@^5.1.4",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^4.2.1",
+    "firebase/": "https://esm.sh/firebase@^12.9.0/"
   }
 }
 </script>

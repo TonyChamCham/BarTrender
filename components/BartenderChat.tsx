@@ -201,6 +201,11 @@ export const BartenderChat: React.FC<BartenderChatProps> = ({
       }
   };
 
+  // --- HELPER FOR STATIC ASSETS ---
+  const getStaticBartenderImage = (personaKey: string) => {
+      return `https://firebasestorage.googleapis.com/v0/b/mixmaster-ai-2fe73.firebasestorage.app/o/images%2Fbartender%2F${personaKey}.jpg?alt=media`;
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#0f0505] relative landscape:flex-row landscape:mt-0">
       
@@ -215,8 +220,17 @@ export const BartenderChat: React.FC<BartenderChatProps> = ({
             {(Object.keys(PERSONA_DATA) as BartenderPersona[]).map(p => (
               <button key={p} onClick={() => { onSwitchPersona(p); setIsPersonaModalOpen(false); }}
                 className={`p-4 rounded-3xl border flex items-center gap-4 transition-all ${persona === p ? 'bg-[#ec1337]/10 border-[#ec1337]' : 'bg-[#1f0a0a] border-[#3d1a1a]'}`}>
-                <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0">
-                  <SmartImage cacheKey={`bartender/${sanitizeKey(p)}`} prompt={PERSONA_DATA[p].imagePrompt} alt={PERSONA_DATA[p].name} className="w-full h-full object-cover" devMode={devMode} />
+                <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-stone-900 border border-stone-800">
+                  {/* DIRECT STATIC IMAGE LOAD */}
+                  <img 
+                    src={getStaticBartenderImage(p)} 
+                    alt={PERSONA_DATA[p].name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                         // Fallback in case image is missing (optional)
+                         (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                   />
                 </div>
                 <div className="text-left"><h4 className="font-black text-lg text-white">{PERSONA_DATA[p].name}</h4><p className="text-[10px] uppercase opacity-60">{PERSONA_DATA[p].style}</p></div>
               </button>
@@ -319,16 +333,16 @@ export const BartenderChat: React.FC<BartenderChatProps> = ({
                 className="w-full h-full object-cover object-center"
              />
         ) : (
-            <SmartImage 
-                cacheKey={`bartender/${sanitizeKey(persona)}`} 
-                prompt={PERSONA_DATA[persona].imagePrompt} 
+            // DIRECT STATIC IMAGE LOAD FOR MAIN VISUAL (Instead of SmartImage)
+            <img 
+                src={getStaticBartenderImage(persona)} 
                 alt={PERSONA_DATA[persona].name} 
-                // Apply dynamic object position
                 className="w-full h-full object-cover"
-                // Inline style for positioning
                 style={{ objectPosition: `${imgPos.x}% ${imgPos.y}%` }}
-                devMode={devMode} 
-                onRegenerate={(p, mod, src) => generateImage(p, `bartender/${sanitizeKey(persona)}`, true, mod, src)} 
+                onError={(e) => {
+                    // Safety fallback: if image doesn't load, try to hide it or show placeholder
+                    // For now, we assume user uploaded them correctly
+                }}
             />
         )}
         
