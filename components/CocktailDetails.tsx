@@ -5,7 +5,8 @@ import { SmartImage } from './SmartImage';
 import { Button } from './Button';
 import { CocktailFullDetails } from '../types';
 import { sanitizeKey, generateImage } from '../services/geminiService';
-import { getIngredientIcon, convertUnitsInString, formatLikes } from './Helpers';
+import { convertUnitsInString, formatLikes } from './Helpers';
+import { IngredientIcon } from './IngredientIcon';
 
 interface CocktailDetailsProps {
   selectedCocktail: CocktailFullDetails;
@@ -146,19 +147,19 @@ export const CocktailDetails: React.FC<CocktailDetailsProps> = ({
         
         <div className="mb-8">
           <h3 className="text-xs font-black text-[#ec1337] uppercase tracking-[0.2em] mb-4">Equipment</h3>
-          <div className="w-full bg-[#1f0a0a] p-5 rounded-3xl border border-[#3d1a1a] space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#ec1337]/5 rounded-xl flex items-center justify-center text-[#ec1337]/70">
-                <Beer size={20} />
-              </div>
-              <span className="text-white font-black text-sm">{selectedCocktail.glassType || 'Standard Glass'}</span>
+          <div className="space-y-3">
+            {/* GLASS TYPE AS FIRST TOOL */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#1f0a0a] border border-[#3d1a1a]">
+              {/* USE IngredientIcon for glass too */}
+              <IngredientIcon name={selectedCocktail.glassType || 'Standard Glass'} type="glass" size={24} className="text-stone-400" />
+              <span className="font-bold text-slate-200 text-lg leading-tight">{selectedCocktail.glassType || 'Standard Glass'}</span>
             </div>
+
+            {/* OTHER TOOLS */}
             {selectedCocktail.tools?.map(t => (
-              <div key={t} className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-stone-600">
-                  <Layers size={18} />
-                </div>
-                <span className="text-stone-300 text-sm font-bold">{t}</span>
+              <div key={t} className="flex items-center gap-4 p-4 rounded-2xl bg-[#1f0a0a] border border-[#3d1a1a]">
+                <IngredientIcon name={t} type="tool" size={24} className="text-stone-400" />
+                <span className="font-bold text-slate-200 text-lg leading-tight">{t}</span>
               </div>
             ))}
           </div>
@@ -176,7 +177,7 @@ export const CocktailDetails: React.FC<CocktailDetailsProps> = ({
             {selectedCocktail.ingredients.map((ing, i) => (
               <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-[#1f0a0a] border border-[#3d1a1a]">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {getIngredientIcon(ing.name)}
+                  <IngredientIcon name={ing.name} size={20} />
                   <div className="min-w-0 flex-1">
                     <span className="font-bold text-slate-200 text-lg block leading-tight break-words">{ing.name}</span>
                     {ing.detail && (

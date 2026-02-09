@@ -21,6 +21,33 @@ export const sanitizeKey = (key: string) => {
         .replace(/[^a-z0-9_]/g, '');
 };
 
+// --- DETERMINISTIC PREMIUM LOGIC V2 (BULLET-PROOF) ---
+// Calcule un statut Premium fixe basé sur le nom du cocktail normalisé à l'extrême.
+export const getDeterministicPremiumStatus = (name: string): boolean => {
+    // 1. Strict Normalization: "Cupid's Arrow!" -> "cupidsarrow"
+    // Cela garantit que peu importe la casse ou la ponctuation, le statut est identique.
+    const normalizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // 2. Whitelist Checks (sur nom normalisé)
+    const FREE_WHITELIST = [
+        'mojito', 'gintonic', 'cubalibre', 'margarita', 'spritz', 'tipunch', 'caipirinha', 'daiquiri',
+        'moscowmule', 'bloodymary', 'tequilasunrise', 'pinacolada', 'sexonthebeach', 'cosmopolitan',
+        'whiskeusour', 'mimosa', 'negoni', 'american', 'bluehawaii', 'maitai'
+    ];
+    // Check if normalized name CONTAINS any whitelist item
+    if (FREE_WHITELIST.some(free => normalizedName.includes(free))) return false;
+
+    // 3. Hashing
+    let hash = 0;
+    for (let i = 0; i < normalizedName.length; i++) {
+        hash = ((hash << 5) - hash) + normalizedName.charCodeAt(i);
+        hash |= 0; 
+    }
+    
+    // Règle : 1 cocktail sur 3 est Premium
+    return Math.abs(hash) % 3 === 0;
+};
+
 const compressImage = async (base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
@@ -280,42 +307,93 @@ const COCKTAIL_DETAIL_SCHEMA = {
   required: ["name", "description", "ingredients", "steps", "tools", "glassType", "tags", "visualContext"],
 };
 
-// --- SEARCH LOGIC ---
+// --- SEARCH LOGIC (FUZZY + STRICT) ---
+
+// Fonction Levenshtein simple pour la tolérance aux fautes de frappe
+function levenshteinDistance(a: string, b: string): number {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+    for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
 const searchLocal = (query: string, allItems: CocktailSummary[]) => {
-    const q = query.toLowerCase().trim();
+    // 1. Normalisation et découpage en tokens (mots)
+    // On vire les caractères spéciaux pour la recherche (ex: "Cupid's" -> "Cupid")
+    const cleanQuery = query.toLowerCase().trim();
+    const queryTokens = cleanQuery.split(/\s+/).filter(t => t.length > 0);
+
     return allItems.filter(c => {
-      const matchName = c.name?.toLowerCase().includes(q) || false;
-      const matchTags = c.tags?.some(t => t.toLowerCase().includes(q)) || false;
-      const matchDesc = c.description?.toLowerCase().includes(q) || false;
-      return matchName || matchTags || matchDesc;
+      const nameLower = c.name.toLowerCase();
+      // On cherche aussi dans les tags (qui contiennent souvent l'alcool principal)
+      const tagsLower = c.tags ? c.tags.map(t => t.toLowerCase()) : [];
+      const searchableText = [nameLower, ...tagsLower].join(" ");
+      
+      // EXCLUSION STRICTE DE LA DESCRIPTION ICI
+      
+      // LOGIC: Every word in the query must match "something" in the name or tags.
+      return queryTokens.every(token => {
+          // A. Exact substring match (Standard)
+          if (searchableText.includes(token)) return true;
+          
+          // B. Fuzzy match (Typo tolerance)
+          // Only for tokens > 3 chars to avoid false positives on small words
+          if (token.length > 3) {
+             // Check if any word in the name/tags is close enough
+             const wordsInTarget = searchableText.split(/\s+/);
+             return wordsInTarget.some(targetWord => {
+                 if (Math.abs(targetWord.length - token.length) > 2) return false;
+                 return levenshteinDistance(token, targetWord) <= 1; // 1 faute max autorisée
+             });
+          }
+          return false;
+      });
     });
 };
 
-const searchWithAI = async (query: string, isNonAlcoholic: boolean, isShotsMode: boolean): Promise<CocktailSummary[]> => {
-    const prompt = `Search for cocktails matching this query: "${query}". 
-    ${isNonAlcoholic ? 'STRICT RULE: Non-alcoholic / Mocktails only.' : ''}
-    ${isShotsMode ? 'STRICT RULE: Shots / Shooters only.' : ''}
-    If query is abstract, find 4-6 matches. Label 'AI PICK'.`;
+const searchWithAI = async (query: string, isNonAlcoholic: boolean, isShotsMode: boolean, excludeNames: string[] = []): Promise<CocktailSummary[]> => {
+    // FEATURE DISABLED TO PREVENT HALLUCINATIONS
+    return [];
+};
 
-    try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: "gemini-3-flash-preview", 
-            contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: COCKTAIL_SUMMARY_SCHEMA },
-        });
-        return response.text ? JSON.parse(response.text) : [];
-    } catch (e) {
-        return [];
-    }
+export const loadMoreSearchCocktails = async (query: string, currentResults: CocktailSummary[], isNonAlcoholic: boolean, isShotsMode: boolean): Promise<CocktailSummary[]> => {
+    // INFINITE SCROLL DISABLED FOR SEARCH
+    return [];
 };
 
 export const searchCocktails = async (query: string, type: SearchType, isNonAlcoholic: boolean = false, isShotsMode: boolean = false, additionalItems: CocktailSummary[] = []): Promise<CocktailSummary[]> => {
   const sourceMap = new Map<string, CocktailSummary>();
+  // Combine all known lists
   [...ADMIN_CURATED_LIST, ...ADMIN_SHOTS_LIST, ...ADMIN_AI_MIXES, ...additionalItems].forEach(c => {
       if (c && c.name) sourceMap.set(c.name.toLowerCase(), c);
   });
   let allSources = Array.from(sourceMap.values());
+  
+  // 1. PERFORM STRICT LOCAL SEARCH (Name & Tags only)
   let results = searchLocal(query, allSources);
+
+  // 2. FETCH FROM FIRESTORE (Global Search)
+  // We do this concurrently to ensure we capture items not in local state
+  const globalResults = await FirebaseService.searchGlobal(query);
+  
+  // 3. MERGE RESULTS (Deduplicate based on name)
+  globalResults.forEach(gr => {
+      // If result not already in local results, add it
+      if (!results.some(r => r.name.toLowerCase() === gr.name.toLowerCase())) {
+          // Apply premium logic just in case
+          gr.isPremium = getDeterministicPremiumStatus(gr.name);
+          results.push(gr);
+      }
+  });
 
   if (isNonAlcoholic) {
       results = results.map(c => {
@@ -326,41 +404,65 @@ export const searchCocktails = async (query: string, type: SearchType, isNonAlco
       results = results.filter(c => c.tags?.some(t => ['shot', 'shooter'].includes(t.toLowerCase())) || ADMIN_SHOTS_LIST.some(s => s.name === c.name));
   }
 
-  if (results.length < 3 || query.split(' ').length > 2) {
-      const aiResults = await searchWithAI(query, isNonAlcoholic, isShotsMode);
-      const existingNames = new Set(results.map(r => r.name.toLowerCase()));
-      aiResults.forEach(aiRes => {
-          if (!existingNames.has(aiRes.name.toLowerCase())) { results.push(aiRes); }
-      });
-  }
+  // SORTING LOGIC: AI Creations to the bottom
+  results.sort((a, b) => {
+      const aIsAI = a.specialLabel === 'AI CREATION' || a.tags.some(t => t.toUpperCase() === 'AI CREATION' || t.toUpperCase() === 'AI PICK');
+      const bIsAI = b.specialLabel === 'AI CREATION' || b.tags.some(t => t.toUpperCase() === 'AI CREATION' || t.toUpperCase() === 'AI PICK');
+      
+      if (aIsAI && !bIsAI) return 1;
+      if (!aIsAI && bIsAI) return -1;
+      return 0;
+  });
+
   return results;
 };
 
-// UPDATED SEASONAL LOGIC FOR INFINITE SCROLL
+// UPDATED SEASONAL LOGIC WITH DB QUOTA PERSISTENCE
 export const getSeasonalCocktails = async (isShotsMode: boolean = false, isNonAlcoholic: boolean = false, monthOffset: number = 0): Promise<CocktailSummary[]> => {
-    const CACHE_KEY = `bartrender_seasonal_${isShotsMode}_${isNonAlcoholic}_offset_${monthOffset}`;
-    const cachedData = localStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-        try {
-            const { timestamp, list } = JSON.parse(cachedData);
-            if (new Date().getTime() - timestamp < 24 * 60 * 60 * 1000) return list;
-        } catch (e) { localStorage.removeItem(CACHE_KEY); }
+    // 1. Determine Quota Key (e.g., "SEASON_FEBRUARY")
+    const now = new Date();
+    now.setMonth(now.getMonth() + monthOffset);
+    const monthName = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][now.getMonth()];
+    const SEASON_LABEL = `SEASON_${monthName.toUpperCase()}`;
+    
+    // 2. Check Firebase for existing cocktails in this season
+    const QUOTA = 20;
+    const existing = await FirebaseService.getCocktailsBySpecialLabel(SEASON_LABEL, QUOTA);
+    
+    // Filter existing list based on current mode for display
+    let displayList = existing;
+    if (isNonAlcoholic) {
+        displayList = displayList.map(c => {
+            if (c.tags?.some(t => ['mocktail', 'virgin', 'non-alcoholic'].includes(t.toLowerCase()))) return c;
+            return { ...c, name: c.name.toLowerCase().includes('virgin') ? c.name : `Virgin ${c.name}`, tags: ['NO ALCOHOL', ...(c.tags || [])] };
+        });
+    } else if (isShotsMode) {
+        displayList = displayList.filter(c => c.tags?.some(t => ['shot', 'shooter'].includes(t.toLowerCase())));
     }
 
-    const now = new Date();
-    // Shift the date by offset months
-    now.setMonth(now.getMonth() + monthOffset);
+    // 3. If Quota reached (in DB, not just display), return immediately
+    // Note: We check `existing.length`, not `displayList.length`, because the quota is about DB population, not just what matches the filter.
+    // However, if the user is in "Shot Mode" and we only have cocktails in DB, we might want to generate shots.
+    // For simplicity and robustness: We only generate if the TOTAL DB count for the season is low.
+    if (existing.length >= QUOTA) {
+        return displayList;
+    }
+
+    // 4. Generate Missing Items
+    const needed = QUOTA - existing.length;
     
-    const month = now.getMonth(); 
-    const monthName = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month];
-    
-    // CHANGE: Ask for 20 cocktails instead of 8 for a better infinite scroll experience
-    const prompt = `Suggest 20 distinctive cocktails for ${monthName}. 
+    const prompt = `Suggest ${needed} distinctive cocktails for ${monthName}. 
     ${isNonAlcoholic ? 'MOCKTAILS ONLY.' : ''} ${isShotsMode ? 'SHOTS ONLY.' : ''}
+    
+    Avoid these names: ${existing.map(c => c.name).join(', ')}.
     
     Provide a comprehensive list for this season.
     Think about the weather, holidays (e.g. Valentines, Halloween, Christmas, Summer heat) occurring in ${monthName}.
-    Assign 'specialLabel' matching the event/season (e.g. SPRING, SUMMER, VALENTINES).`;
+    
+    IMPORTANT: You MUST include the specific season or holiday name (e.g. 'Valentine', 'Winter', 'St Patrick', 'Christmas', 'Summer', 'Autumn') as the FIRST tag in the list.
+    Do NOT include the generic month name ("${monthName}") as a tag.
+    
+    Assign 'specialLabel' EXACTLY as: "${SEASON_LABEL}".`;
     
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
@@ -369,11 +471,43 @@ export const getSeasonalCocktails = async (isShotsMode: boolean = false, isNonAl
             config: { responseMimeType: "application/json", responseSchema: COCKTAIL_SUMMARY_SCHEMA },
         });
         
-        let list: CocktailSummary[] = response.text ? JSON.parse(response.text) : [];
+        let newItems: CocktailSummary[] = response.text ? JSON.parse(response.text) : [];
         
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: new Date().getTime(), list }));
-        return list;
-    } catch (e) { return []; }
+        // Post-process new items
+        newItems = newItems.map(c => {
+            const tagsSet = new Set(c.tags || []);
+            // DO NOT FORCE MONTH NAME INTO TAGS
+            return {
+                ...c,
+                tags: Array.from(tagsSet),
+                specialLabel: SEASON_LABEL, // Enforce our standardized label key
+                isPremium: getDeterministicPremiumStatus(c.name)
+            };
+        });
+
+        // 5. SAVE IMMEDIATELY TO FIREBASE (Batch)
+        if (newItems.length > 0) {
+            await FirebaseService.batchSaveCocktails(newItems);
+        }
+
+        // Return combined list (filtered for display)
+        const combined = [...displayList, ...newItems];
+        
+        // Apply display filters again to the new items just in case AI drifted
+        if (isNonAlcoholic) {
+             return combined.map(c => {
+                if (c.tags?.some(t => ['mocktail', 'virgin', 'non-alcoholic'].includes(t.toLowerCase()))) return c;
+                return { ...c, name: c.name.toLowerCase().includes('virgin') ? c.name : `Virgin ${c.name}`, tags: ['NO ALCOHOL', ...(c.tags || [])] };
+            });
+        } else if (isShotsMode) {
+            return combined.filter(c => c.tags?.some(t => ['shot', 'shooter'].includes(t.toLowerCase())));
+        }
+        
+        return combined;
+
+    } catch (e) { 
+        return displayList; // Fail gracefully to existing
+    }
 };
 
 export const getCocktailDetails = async (name: string, isNonAlcoholic: boolean = false, isShotsMode: boolean = false, freshTags?: string[]): Promise<CocktailFullDetails | null> => {
@@ -417,6 +551,10 @@ export const getCocktailDetails = async (name: string, isNonAlcoholic: boolean =
     if (response.text) {
       let details = JSON.parse(response.text) as CocktailFullDetails;
       if (freshTags && freshTags.length > 0) details.tags = freshTags;
+      
+      // Ensure Premium status consistency here too (though usually used for display)
+      details.isPremium = getDeterministicPremiumStatus(details.name);
+
       FirebaseService.saveCocktail(details, storageKey).catch(err => console.error(err));
       return details;
     }
@@ -448,7 +586,8 @@ export const identifyCocktail = async (base64Image: string, isNonAlcoholic: bool
             contents: { parts: [ { inlineData: { mimeType: "image/jpeg", data: compressedImage.split(',')[1] } }, { text: prompt } ] },
             config: { responseMimeType: "application/json", responseSchema: COCKTAIL_SUMMARY_SCHEMA },
         });
-        return response.text ? JSON.parse(response.text) : [];
+        const list: CocktailSummary[] = response.text ? JSON.parse(response.text) : [];
+        return list.map(c => ({ ...c, isPremium: getDeterministicPremiumStatus(c.name) }));
     } catch (error) { return []; }
 };
 
@@ -497,7 +636,10 @@ export const generateImage = async (prompt: string, cacheKey: string, forceRefre
     const cloud = await FirebaseService.getImage(sanitizedCacheKey);
     if (cloud) { CacheService.saveImage(sanitizedCacheKey, cloud).catch(() => {}); return cloud; }
   }
-  const enhancedPrompt = `${prompt}. Professional photography, high-end studio lighting. NO TEXT, NO LOGOS.`;
+  
+  // STRONGER NEGATIVE PROMPTING FOR LITERAL INTERPRETATIONS
+  const enhancedPrompt = `${prompt}. Professional cocktail photography. FOCUS ON THE DRINK IN THE GLASS. DO NOT illustrate the name literally (e.g. no actual dragons, no tools, no animals). Realistic bar setting. High-end studio lighting. NO TEXT, NO LOGOS.`;
+  
   return imageQueue.add(async () => {
     try {
       const currentAi = new GoogleGenAI({ apiKey: API_KEY });

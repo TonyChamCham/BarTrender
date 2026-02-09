@@ -2,12 +2,12 @@
 // @ts-ignore
 import { initializeApp } from "firebase/app";
 // @ts-ignore
-import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, increment, runTransaction, getDocs, collection, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, increment, runTransaction, getDocs, collection, deleteDoc, query, where, limit, writeBatch } from "firebase/firestore";
 // @ts-ignore
 import { getStorage, ref, uploadString, getDownloadURL, uploadBytes } from "firebase/storage";
 // @ts-ignore
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { CocktailFullDetails, PromoCode } from "../types";
+import { CocktailFullDetails, PromoCode, CocktailSummary } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAkqHmKhd2uP8cJSkQ17z3JIX-yU_V2ras",
@@ -60,6 +60,17 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Prom
 
 export const FirebaseService = {
   
+  // Generic File Fetch (Icons, etc)
+  async getFileUrl(path: string): Promise<string | null> {
+      if (!storage) return null;
+      try {
+          const r = ref(storage, path);
+          return await getDownloadURL(r);
+      } catch (e) {
+          return null; // Return null if file doesn't exist to trigger fallback
+      }
+  },
+
   async saveImage(cacheKey: string, base64Data: string): Promise<void> {
     if (!storage) return; 
     try {
@@ -128,7 +139,7 @@ export const FirebaseService = {
     }
   },
 
-  async saveCocktail(cocktail: CocktailFullDetails, customId?: string): Promise<void> {
+  async saveCocktail(cocktail: CocktailFullDetails | CocktailSummary, customId?: string): Promise<void> {
     if (!db) return;
     try {
       const idToUse = customId || cocktail.name;
@@ -136,6 +147,25 @@ export const FirebaseService = {
       await setDoc(docRef, cocktail, { merge: true });
     } catch (e) {
         // Silent fail on save
+    }
+  },
+
+  // NEW: Save multiple cocktails efficiently (Summary only)
+  async batchSaveCocktails(cocktails: CocktailSummary[]): Promise<void> {
+    if (!db || cocktails.length === 0) return;
+    try {
+        const batch = writeBatch(db);
+        cocktails.forEach(c => {
+            // We use the name as ID (sanitized if possible, but raw name is ok for this map)
+            // Ideally sanitizeKey should be imported, but we'll assume caller handles ID or we use name
+            // For safety, let's use the name as document ID directly
+            const docRef = doc(db, "cocktails", c.name);
+            batch.set(docRef, c, { merge: true });
+        });
+        await batch.commit();
+        console.log(`💾 Batch saved ${cocktails.length} cocktails.`);
+    } catch (e) {
+        console.warn("Batch save failed", e);
     }
   },
 
@@ -149,6 +179,95 @@ export const FirebaseService = {
     } catch (e) {
         return null;
     }
+  },
+
+  // NEW: Retrieve cocktails by Special Label (Season/Event) to verify quota
+  async getCocktailsBySpecialLabel(label: string, limitCount: number = 20): Promise<CocktailSummary[]> {
+      if (!db) return [];
+      try {
+          const q = query(
+              collection(db, "cocktails"), 
+              where("specialLabel", "==", label),
+              limit(limitCount)
+          );
+          const snap = await getDocs(q);
+          const list: CocktailSummary[] = [];
+          snap.forEach(doc => {
+              // Only pull necessary summary data
+              const data = doc.data();
+              list.push({
+                  name: data.name,
+                  description: data.description || "",
+                  tags: data.tags || [],
+                  isPremium: data.isPremium || false,
+                  likes: data.likes || 0,
+                  specialLabel: data.specialLabel
+              });
+          });
+          return list;
+      } catch (e) {
+          console.warn("Failed to get seasonal by label", e);
+          return [];
+      }
+  },
+
+  // NEW: Search Global in Firestore
+  async searchGlobal(queryText: string): Promise<CocktailSummary[]> {
+      if (!db) return [];
+      
+      const resultsMap = new Map<string, CocktailSummary>();
+      const term = queryText.trim();
+      if (term.length < 2) return [];
+
+      // Capitalize for Tag Search (assuming tags are "Vodka", "Gin", etc.)
+      const termCap = term.charAt(0).toUpperCase() + term.slice(1).toLowerCase();
+      const termLower = term.toLowerCase(); // For name search if stored lowercase, but names are usually Title Case
+
+      try {
+          // 1. Search by Name Prefix (Case sensitive in Firestore, usually names are Title Case)
+          // To make it robust, we try exact term capitalization provided by user + Title Case version
+          const nameQuery = query(
+              collection(db, "cocktails"), 
+              where("name", ">=", termCap), 
+              where("name", "<=", termCap + '\uf8ff'), 
+              limit(10)
+          );
+
+          // 2. Search by Tags (Array Contains)
+          const tagQuery = query(
+              collection(db, "cocktails"),
+              where("tags", "array-contains", termCap),
+              limit(20)
+          );
+          
+          const [nameSnap, tagSnap] = await Promise.all([
+              getDocs(nameQuery),
+              getDocs(tagQuery)
+          ]);
+
+          const processDoc = (doc: any) => {
+              const data = doc.data() as CocktailSummary;
+              if (data.name && !resultsMap.has(data.name)) {
+                  resultsMap.set(data.name, {
+                      name: data.name,
+                      description: data.description || "",
+                      tags: data.tags || [],
+                      isPremium: data.isPremium,
+                      likes: data.likes,
+                      specialLabel: data.specialLabel
+                  });
+              }
+          };
+
+          nameSnap.forEach(processDoc);
+          tagSnap.forEach(processDoc);
+
+          return Array.from(resultsMap.values());
+
+      } catch (e) {
+          console.warn("Global search failed", e);
+          return [];
+      }
   },
 
   async syncLike(cocktailName: string, isAdding: boolean): Promise<void> {

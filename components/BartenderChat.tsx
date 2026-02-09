@@ -414,6 +414,7 @@ export const BartenderChat: React.FC<BartenderChatProps> = ({
                 <div className="bg-[#1f0a0a] border border-[#3d1a1a] p-4 rounded-3xl flex gap-2">
                 <div className="w-2 h-2 bg-[#ec1337] rounded-full animate-bounce" />
                 <div className="w-2 h-2 bg-[#ec1337] rounded-full animate-bounce delay-150" />
+                <div className="w-2 h-2 bg-[#ec1337] rounded-full animate-bounce delay-300" />
                 </div>
             </div>
             )}

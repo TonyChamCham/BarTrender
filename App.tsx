@@ -5,10 +5,10 @@ import { Button } from './components/Button';
 import { AppView, CocktailSummary, CocktailFullDetails, SearchType } from './types';
 import { 
   searchCocktails, getCocktailDetails, getCuratedSuggestions, identifyCocktail, chatWithBartender,
-  BartenderPersona, PERSONA_DATA, getSeasonalCocktails, sanitizeKey, getAiMixes, generateImage
+  BartenderPersona, PERSONA_DATA, getSeasonalCocktails, sanitizeKey, getAiMixes, generateImage, loadMoreSearchCocktails
 } from './services/geminiService';
 import { FirebaseService } from './services/firebaseService';
-import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, AlertTriangle } from 'lucide-react';
+import { Search, Camera, Loader2, Shuffle, Flame, Calendar, Wine, Bot, HeartOff, Heart, AlertTriangle, Link, Check } from 'lucide-react';
 
 // Modulized Components
 import { CocktailCard } from './components/CocktailCard';
@@ -68,7 +68,6 @@ const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
 };
 
 // Divider Component using SmartImage - FULL WIDTH/HEIGHT DESIGN
-// Hauteur augmentée à h-60 pour plus d'impact (+40-50%)
 const SeasonDivider: React.FC<{ title: string, devMode: boolean }> = ({ title, devMode }) => {
     const prompt = getSeasonalPrompt(title);
     const cacheKey = `seasonal/divider/${sanitizeKey(title)}`;
@@ -100,12 +99,23 @@ const SeasonDivider: React.FC<{ title: string, devMode: boolean }> = ({ title, d
     );
 };
 
+// TOAST COMPONENT
+const Toast = ({ message, visible }: { message: string, visible: boolean }) => {
+    return (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+            <div className="bg-[#1f0a0a]/90 backdrop-blur-md border border-[#3d1a1a] text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                <div className="bg-[#ec1337] rounded-full p-1"><Check size={12} strokeWidth={4} /></div>
+                <span className="font-bold text-sm">{message}</span>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
   const [logoAnimating, setLogoAnimating] = useState(true);
   
-  // FIX: Start true immediately to be behind splash screen (no flicker)
   const [showAgeGate, setShowAgeGate] = useState(true);
   
   const [viewStack, setViewStack] = useState<AppView[]>([AppView.HOME]);
@@ -131,16 +141,26 @@ export default function App() {
   const [aiMixesList, setAiMixesList] = useState<CocktailSummary[]>([]);
   const [searchResults, setSearchResults] = useState<CocktailSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // REF FOR SEARCH QUERY to avoid stale closures in infinite scroll
+  const currentSearchQueryRef = useRef('');
+  // REF FOR REQUEST ID to prevent race conditions
+  const searchRequestId = useRef(0);
+
   const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
-  // STATES POUR LA GESTION DE L'INFINITE SCROLL
+  // INFINITE SCROLL STATES
   const [isSeasonalLoading, setIsSeasonalLoading] = useState(false);
   const [seasonalError, setSeasonalError] = useState(false);
   const [hasMoreSeasonal, setHasMoreSeasonal] = useState(true);
   const [displayCount, setDisplayCount] = useState(8);
   
+  // SEARCH INFINITE SCROLL STATE
+  const [isSearchLoadingMore, setIsSearchLoadingMore] = useState(false);
+  const [hasMoreSearch, setHasMoreSearch] = useState(true);
+
   const [mixingStep, setMixingStep] = useState(0);
   const [activeTab, setActiveTab] = useState<HomeTab>('seasonal');
   const [seasonalOffset, setSeasonalOffset] = useState(0); 
@@ -154,6 +174,10 @@ export default function App() {
   });
   const [bartenderPersona, setBartenderPersona] = useState<BartenderPersona>('classic');
   const [isTyping, setIsTyping] = useState(false);
+
+  // TOAST STATE
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // SCROLL RESTORATION REF (Per Tab)
   const scrollPositionsRef = useRef<Record<string, number>>({});
@@ -187,10 +211,9 @@ export default function App() {
     getAiMixes(isShotsMode, isNonAlcoholic).then(list => {
         setAiMixesList(list);
     });
-    fetchSeasonal(0, true); // Reset to 0 when mode changes
+    fetchSeasonal(0, true); 
   }, [isNonAlcoholic, isShotsMode]);
 
-  // BACKGROUND DB POPULATION LOGIC
   useEffect(() => {
     let isCancelled = false;
     const populateDB = async () => {
@@ -198,7 +221,7 @@ export default function App() {
         if (listToProcess.length === 0) return;
         for (const cocktail of listToProcess) {
             if (isCancelled) break;
-            if (cocktail.isDivider) continue; // Skip dividers
+            if (cocktail.isDivider) continue;
             await getCocktailDetails(cocktail.name, isNonAlcoholic, isShotsMode);
             await new Promise(r => setTimeout(r, 2000));
         }
@@ -207,7 +230,6 @@ export default function App() {
     return () => { isCancelled = true; clearTimeout(timeout); };
   }, [seasonalList, curatedList, aiMixesList, activeTab, isNonAlcoholic, isShotsMode]);
 
-  // RESTORE SCROLL ON TAB CHANGE
   useEffect(() => {
       if (view === AppView.HOME) {
           const container = getScrollContainer();
@@ -222,7 +244,10 @@ export default function App() {
         setPlaceholder(PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)]);
         setIsImageSearch(false);
         setLastAnalyzedImage(null);
+        
+        // Reset Search Query Ref on Home
         setSearchQuery('');
+        currentSearchQueryRef.current = '';
         
         const container = getScrollContainer();
         if (container) {
@@ -233,48 +258,55 @@ export default function App() {
     }
   }, [view]);
 
-  // Infinite Scroll Logic - FRICTIONLESS
+  // Infinite Scroll Logic
   useEffect(() => {
+      // Observer works on HOME or SEARCH
+      if (view !== AppView.HOME && view !== AppView.SEARCH) return;
+
       const container = getScrollContainer();
       
       const observer = new IntersectionObserver(
           (entries) => {
               if (entries[0].isIntersecting) {
-                  const currentList = getActiveList();
                   
-                  // Logic for Normal Lists
-                  if (activeTab !== 'seasonal' && displayCount < currentList.length) {
-                      setDisplayCount(prev => prev + 6);
-                  } 
-                  
-                  // Logic for Seasonal Infinite Scroll (Fetch Next Month)
-                  // CRITICAL CHECK: hasMoreSeasonal must be true AND no error
-                  else if (activeTab === 'seasonal' && hasMoreSeasonal && !seasonalError) {
-                      if (displayCount < currentList.length) {
-                           setDisplayCount(prev => prev + 6);
-                      } else if (!isSeasonalLoading) {
-                           // Frictionless: Load next month automatically when sentinel is seen
-                           const nextOffset = seasonalOffset + 1;
-                           setSeasonalOffset(nextOffset);
-                           fetchSeasonal(nextOffset, false);
+                  if (view === AppView.HOME) {
+                      const currentList = getActiveList();
+                      if (activeTab !== 'seasonal' && displayCount < currentList.length) {
+                          setDisplayCount(prev => prev + 6);
+                      } 
+                      else if (activeTab === 'seasonal' && hasMoreSeasonal && !seasonalError) {
+                          if (displayCount < currentList.length) {
+                               setDisplayCount(prev => prev + 6);
+                          } else if (!isSeasonalLoading) {
+                               const nextOffset = seasonalOffset + 1;
+                               setSeasonalOffset(nextOffset);
+                               fetchSeasonal(nextOffset, false);
+                          }
+                      }
+                  } else if (view === AppView.SEARCH) {
+                      // SEARCH INFINITE SCROLL
+                      if (hasMoreSearch && !isSearchLoadingMore && !isLoading && searchResults.length > 0) {
+                          handleLoadMoreSearch();
                       }
                   }
+
               }
           },
           { 
               root: container || null,
               threshold: 0.1,
-              rootMargin: '600px' // Huge margin to trigger load well before user hits bottom
+              rootMargin: '600px'
           }
       );
       
       if (loadMoreRef.current) observer.observe(loadMoreRef.current);
       return () => observer.disconnect();
-  }, [loadMoreRef, displayCount, activeTab, seasonalList, curatedList, aiMixesList, favorites, isSeasonalLoading, seasonalOffset, hasMoreSeasonal, seasonalError]);
+      
+  }, [loadMoreRef, displayCount, activeTab, seasonalList, curatedList, aiMixesList, favorites, isSeasonalLoading, seasonalOffset, hasMoreSeasonal, seasonalError, view, hasMoreSearch, isSearchLoadingMore, isLoading, searchResults]);
 
 
   const handleToggleFav = (cocktail: CocktailSummary) => {
-    triggerHaptic('medium'); // HAPTIC ON FAV
+    triggerHaptic('medium');
     setFavorites(prev => {
         const isAlreadyFav = prev.some(f => f.name === cocktail.name);
         const increment = isAlreadyFav ? -1 : 1;
@@ -315,10 +347,9 @@ export default function App() {
   };
 
   const handleToggleNonAlcoholic = () => {
-    triggerHaptic('light'); // HAPTIC
+    triggerHaptic('light');
     const newVal = !isNonAlcoholic;
     setIsNonAlcoholic(newVal);
-    // IMMEDIATE CLEANUP
     setSeasonalList([]);
     setCuratedList([]);
     setAiMixesList([]);
@@ -328,10 +359,9 @@ export default function App() {
   };
 
   const handleToggleShotsMode = () => {
-    triggerHaptic('light'); // HAPTIC
+    triggerHaptic('light');
     const newVal = !isShotsMode;
     setIsShotsMode(newVal);
-    // IMMEDIATE CLEANUP
     setSeasonalList([]);
     setCuratedList([]);
     setAiMixesList([]);
@@ -348,19 +378,16 @@ export default function App() {
   };
 
   const fetchSeasonal = async (offset = 0, reset = false) => {
-    // If reset, clear list and start over
     if (reset) {
         setSeasonalList([]);
         setSeasonalOffset(0);
         setIsSeasonalLoading(true);
         setHasMoreSeasonal(true);
         setSeasonalError(false);
-        
         const list = await getSeasonalCocktails(isShotsMode, isNonAlcoholic, 0);
-        
         if (list.length === 0) {
             setSeasonalError(true);
-            setHasMoreSeasonal(false); // STOP LOOP
+            setHasMoreSeasonal(false); 
         } else {
             setSeasonalList(list);
         }
@@ -369,19 +396,13 @@ export default function App() {
     }
 
     if (!hasMoreSeasonal) return;
-
     setIsSeasonalLoading(true);
     const newItems = await getSeasonalCocktails(isShotsMode, isNonAlcoholic, offset);
-    
-    // CRITICAL FIX: If API fails or returns empty, stop the loop
     if (newItems.length === 0) {
         setHasMoreSeasonal(false);
         setIsSeasonalLoading(false);
-        // Do NOT set error here, just stop loading more
         return; 
     }
-    
-    // Create Divider
     const nextMonthName = getMonthName(offset);
     const divider: CocktailSummary = {
         name: `divider-${offset}`,
@@ -391,47 +412,158 @@ export default function App() {
         dividerTitle: `Heading into ${nextMonthName}...`,
         dividerMonth: nextMonthName
     };
-
     setSeasonalList(prev => [...prev, divider, ...newItems]);
     setIsSeasonalLoading(false);
   };
 
+  const showToast = (message: string) => {
+      setToastMessage(message);
+      setToastVisible(true);
+      setTimeout(() => setToastVisible(false), 3000);
+  };
+
   const handleShare = async (cocktailName: string) => {
-    triggerHaptic('light'); // HAPTIC
+    triggerHaptic('light'); 
     const text = `Check out this amazing cocktail I found on BarTrender: ${cocktailName}! 🍸✨`;
     const url = window.location.href;
+    
+    // Fonction robuste de copie avec fallback et gestion iOS
+    const copyToClipboard = async (textToCopy: string) => {
+        // 1. Essai API Moderne
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(textToCopy);
+                return true;
+            }
+        } catch (err) {
+            // Continue vers fallback
+        }
+
+        // 2. Fallback Legacy
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            
+            // Éviter le scroll auto en bas de page
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0"; // Invisible mais présent
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            // Astuce spécifique iOS pour execCommand
+            if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+                const range = document.createRange();
+                range.selectNodeContents(textArea);
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    textArea.setSelectionRange(0, 999999);
+                }
+            }
+
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return successful;
+        } catch (fallbackErr) {
+            console.error('Fallback copy failed', fallbackErr);
+            return false;
+        }
+    };
+
+    // LOGIQUE DE PARTAGE : Tenter Share -> Si échec, copier presse-papier
     try {
-        await navigator.clipboard.writeText(`${text} ${url}`);
-        if (navigator.share) { await navigator.share({ title: 'BarTrender', text, url }); } 
-        else { alert("Link copied to clipboard! Ready to share."); }
-    } catch (e) { alert(`Share this manually: ${text} ${url}`); }
+        if (navigator.share) { 
+            await navigator.share({ title: 'BarTrender', text, url });
+            return; // Succès, on s'arrête là
+        }
+    } catch (e) {
+        // Ignorer l'erreur de partage (ex: annulation utilisateur) et passer à la copie
+    }
+
+    // Fallback systématique : Copie presse-papier
+    const success = await copyToClipboard(`${text} ${url}`);
+    if (success) showToast("Link copied to clipboard!");
+    else showToast("Could not copy link (permission denied)");
   };
 
   const handleSearch = async (query: string) => {
     if (!query.trim()) return;
-    if (isLoading) return; 
+    
+    // REMOVED BLOCKER: if (isLoading) return; 
+    // This allows the user to trigger a new search even if previous "Thinking..." state was active.
+    
     setIsLoading(true);
     setSearchQuery(query);
+    currentSearchQueryRef.current = query; // Update ref immediately
+    
+    // INCREMENT REQUEST ID
+    const requestId = ++searchRequestId.current;
+
     setIsImageSearch(false);
+    
+    // Clear previous results immediately to avoid pollution
+    setSearchResults([]);
+    
+    // Reset Infinite Scroll for Search
+    setHasMoreSearch(true);
+    setIsSearchLoadingMore(false);
+
     if (view !== AppView.SEARCH) pushView(AppView.SEARCH);
     
     const allKnownCocktails = [...seasonalList, ...curatedList, ...aiMixesList, ...favorites].filter(c => !c.isDivider);
     
+    // SEARCH LOCAL
     const results = await searchCocktails(query, SearchType.SMART, isNonAlcoholic, isShotsMode, allKnownCocktails);
-    setSearchResults(results);
-    setIsLoading(false);
+    
+    // RACE CONDITION CHECK
+    if (requestId === searchRequestId.current) {
+        setSearchResults(results);
+        setIsLoading(false);
+        if (results.length === 0) setHasMoreSearch(false);
+    }
+  };
+
+  const handleLoadMoreSearch = async () => {
+      if (isSearchLoadingMore || !hasMoreSearch || isImageSearch) return; 
+      
+      // Use REF to guarantee we are searching for the CURRENT term, not a stale state closure
+      const activeQuery = currentSearchQueryRef.current;
+      if (!activeQuery) return;
+
+      setIsSearchLoadingMore(true);
+      
+      const moreResults = await loadMoreSearchCocktails(activeQuery, searchResults, isNonAlcoholic, isShotsMode);
+      
+      if (moreResults.length === 0) {
+          setHasMoreSearch(false);
+      } else {
+          // Add unique new results
+          setSearchResults(prev => {
+              const existingNames = new Set(prev.map(c => c.name.toLowerCase()));
+              const uniqueNew = moreResults.filter(c => !existingNames.has(c.name.toLowerCase()));
+              if (uniqueNew.length === 0) setHasMoreSearch(false);
+              return [...prev, ...uniqueNew];
+          });
+      }
+      setIsSearchLoadingMore(false);
   };
 
   const handleSearchChange = (val: string) => {
       setSearchQuery(val);
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
       if (val.trim().length > 2) {
-          searchDebounceRef.current = setTimeout(() => { handleSearch(val); }, 1200);
+          // Reduced to 800ms for better responsiveness
+          searchDebounceRef.current = setTimeout(() => { handleSearch(val); }, 800);
       }
   };
 
   const fetchAndShowCocktailDetails = async (summary: CocktailSummary, currentNonAlc = isNonAlcoholic, currentShots = isShotsMode) => {
-    if (summary.isDivider) return; // Ignore clicks on dividers
+    if (summary.isDivider) return;
     setIsLoadingDetails(true);
     setSelectedCocktail({ 
       ...summary, 
@@ -475,14 +607,14 @@ export default function App() {
     try {
       const response = await chatWithBartender(updated, text, bartenderPersona, isNonAlcoholic, isShotsMode);
       setChatHistories(prev => ({ ...prev, [bartenderPersona]: [...updated, { role: 'model', text: response.text, suggestionName: response.suggestionName }] }));
-      triggerHaptic('light'); // HAPTIC ON RESPONSE
+      triggerHaptic('light'); 
     } catch (err) {
       setChatHistories(prev => ({ ...prev, [bartenderPersona]: [...updated, { role: 'model', text: "Service unavailable." }] }));
     } finally { setIsTyping(false); }
   };
 
   const handlePaywallSuccess = () => {
-    triggerHaptic('heavy'); // HAPTIC SUCCESS
+    triggerHaptic('heavy'); 
     setIsSubscribed(true);
     popView(); 
     if (pendingCocktailSummary) {
@@ -515,13 +647,13 @@ export default function App() {
     setSearchQuery("Analyzing image...");
     setViewStack([AppView.HOME, AppView.SEARCH]);
     const results = await identifyCocktail(base64, isNonAlcoholic, isShotsMode);
-    triggerHaptic('medium'); // HAPTIC
+    triggerHaptic('medium'); 
     setSearchResults(results);
     setIsLoading(false);
   };
 
   const capturePhoto = () => {
-    triggerHaptic('heavy'); // HAPTIC SHUTTER
+    triggerHaptic('heavy'); 
     const canvas = document.createElement('canvas');
     if (videoRef.current) {
       canvas.width = videoRef.current.videoWidth;
@@ -558,7 +690,11 @@ export default function App() {
                 placeholder={isImageSearch ? "Analyzing image..." : placeholder} 
                 className="w-full h-full bg-transparent pl-10 pr-2 text-white placeholder-stone-500 focus:outline-none text-[13px] font-medium" 
             />
-            <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isNonAlcoholic ? 'text-[#17B67F]' : isShotsMode ? 'text-[#F3415F]' : 'text-stone-500'}`} size={16} />
+            <Search 
+                className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isNonAlcoholic ? 'text-[#17B67F]' : isShotsMode ? 'text-[#F3415F]' : 'text-stone-500'} cursor-pointer active:scale-95 transition-transform`} 
+                size={16} 
+                onClick={() => handleSearch(searchQuery)}
+            />
             <button onClick={handleCameraClick} className={`absolute right-1 top-1 bottom-1 w-10 rounded-xl flex items-center justify-center text-white active:scale-90 transition-all ${ isShotsMode ? 'bg-[#F3415F]' : isNonAlcoholic ? 'bg-[#17B67F]' : 'bg-[#ec1337]' }`}>
                 <Camera size={18} strokeWidth={2.5} />
             </button>
@@ -582,7 +718,7 @@ export default function App() {
 
   const handleTabChange = (newTab: HomeTab) => {
       if (activeTab === newTab) return;
-      triggerHaptic('light'); // HAPTIC TAB CHANGE
+      triggerHaptic('light'); 
       const container = getScrollContainer();
       if (container) { scrollPositionsRef.current[activeTab] = container.scrollTop; }
       setActiveTab(newTab);
@@ -631,6 +767,8 @@ export default function App() {
 
   return (
     <>
+      <Toast message={toastMessage} visible={toastVisible} />
+
       {showSplash && (
         <div className={`fixed inset-0 z-[100] bg-[#0f0505] flex flex-col items-center justify-center transition-opacity duration-1000 ${splashFading ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             <div className="flex flex-col items-center">
@@ -665,7 +803,6 @@ export default function App() {
         hideHeader={view === AppView.CAMERA}
       >
         {view === AppView.HOME && (
-          // Grid Adjustment: lg:grid-cols-3 instead of 4, XL stays 4.
           <div className="px-4 pt-[210px] landscape:pt-[115px] lg:pt-[240px] lg:landscape:pt-[210px] pb-20 w-full mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-3">
             
             {seasonalError && activeTab === 'seasonal' && (
@@ -709,11 +846,7 @@ export default function App() {
                         />
                     );
                 })}
-                {/* Frictionless Infinite Scroll Sentinel */}
-                <div ref={loadMoreRef} className="h-20 w-full col-span-full flex items-center justify-center mt-4 mb-10 opacity-0 pointer-events-none">
-                     {/* Hidden Trigger Area - The observer will hit this */}
-                </div>
-                {/* Visible Loading State (Only if taking time) */}
+                <div ref={loadMoreRef} className="h-20 w-full col-span-full flex items-center justify-center mt-4 mb-10 opacity-0 pointer-events-none"></div>
                 {activeTab === 'seasonal' && isSeasonalLoading && (
                     <div className="col-span-full py-4 flex justify-center">
                         <Loader2 className="animate-spin text-[#ec1337]" size={24} />
@@ -725,7 +858,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ... Rest of components (SEARCH, DETAILS, MIXING, CHAT, CAMERA, PAYWALL) stay exactly the same ... */}
         {view === AppView.SEARCH && (
           <div className="px-4 pt-[160px] landscape:pt-[120px] lg:pt-[160px] lg:landscape:pt-[180px] pb-20 w-full mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {isLoading ? <div className="py-20 text-center col-span-full"><Loader2 className="animate-spin text-[#ec1337] mx-auto mb-4" size={40} /><p className="text-xs font-bold uppercase text-stone-500">{isImageSearch ? "Analyzing Image..." : "Thinking..."}</p></div> : 
@@ -745,6 +877,26 @@ export default function App() {
                         onShare={handleShare} 
                     />
                   ))}
+                  
+                  {/* Load More Trigger for Search - Only render if we expect more results */}
+                  {hasMoreSearch && (
+                     <div ref={loadMoreRef} className="h-20 w-full col-span-full flex items-center justify-center mt-4 mb-10 opacity-0 pointer-events-none"></div>
+                  )}
+                  
+                  {isSearchLoadingMore && (
+                     <div className="col-span-full py-4 flex flex-col items-center justify-center">
+                        <Loader2 className="animate-spin text-[#ec1337] mb-2" size={24} />
+                        <span className="text-[10px] text-stone-500 font-bold uppercase">Finding more...</span>
+                     </div>
+                  )}
+
+                  {!hasMoreSearch && !isSearchLoadingMore && searchResults.length > 4 && (
+                      <div className="col-span-full py-4 mt-0 flex flex-col items-center justify-center">
+                          <div className="w-12 h-1 bg-stone-800 rounded-full mb-2"></div>
+                          <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">End of Results</span>
+                      </div>
+                  )}
+
                 </React.Fragment>
               ) : 
               <div className="text-center py-20 text-stone-500 flex flex-col items-center gap-4 col-span-full">

@@ -5,7 +5,7 @@ import { SmartImage } from './SmartImage';
 import { Button } from './Button';
 import { CocktailFullDetails } from '../types';
 import { sanitizeKey, generateImage } from '../services/geminiService';
-import { convertUnitsInString, RichTextRenderer } from './Helpers';
+import { convertUnitsInString, InstructionWithInlineIngredients } from './Helpers';
 
 interface MixingGuideProps {
   selectedCocktail: CocktailFullDetails;
@@ -58,10 +58,14 @@ export const MixingGuide: React.FC<MixingGuideProps> = ({
   const currentStep = selectedCocktail.steps[mixingStep];
   const vs = currentStep.visualState;
   
+  // Force opaque material for shakers
+  const isShaker = vs.glass.toLowerCase().includes('shaker') || vs.accessories.toLowerCase().includes('shaker');
+  const materialPrompt = isShaker ? "Solid OPAQUE stainless steel metal shaker. NOT transparent. NOT glass. Professional Bar Equipment." : "";
+
   const detailedPrompt = `High-end cocktail photography. 
   DRINK: ${selectedCocktail.name}.
   BACKGROUND: ${vs.background}.
-  GLASS: ${vs.glass}. 
+  CONTAINER: ${vs.glass}. ${materialPrompt}
   EQUIPMENT IN USE: ${vs.accessories}.
   ACTION: ${vs.action}.
   EXPECTED RESULT: ${vs.result}.
@@ -70,9 +74,12 @@ export const MixingGuide: React.FC<MixingGuideProps> = ({
   return (
     <div className="w-full h-full flex flex-col landscape:flex-row bg-[#0f0505] overflow-hidden pt-[70px] pb-4 px-4 gap-4">
       
-      {/* IMAGE CONTAINER */}
-      {/* Portrait: Fixed aspect video. Landscape: 45% width to leave space for text */}
-      <div className="relative w-full aspect-video landscape:aspect-auto landscape:w-[45%] landscape:h-full rounded-3xl overflow-hidden border border-[#3d1a1a] bg-[#1f0a0a] flex-shrink-0 shadow-2xl transition-all">
+      {/* IMAGE CONTAINER 
+          Updated logic based on user feedback:
+          - min-h: 30vh (was 15vh)
+          - max-h: 45vh (was 35vh)
+      */}
+      <div className="relative flex-shrink flex-grow-0 basis-auto landscape:flex-none landscape:w-1/2 rounded-3xl overflow-hidden border border-[#3d1a1a] bg-[#1f0a0a] shadow-2xl transition-all min-h-[30vh] max-h-[45vh] landscape:max-h-full landscape:h-full">
         <SmartImage 
           cacheKey={`cocktails/${sanitizeKey(selectedCocktail.name)}/steps/${mixingStep}`} 
           prompt={detailedPrompt} 
@@ -90,51 +97,41 @@ export const MixingGuide: React.FC<MixingGuideProps> = ({
         </div>
       </div>
 
-      {/* TEXT & CONTROLS */}
-      {/* min-h-0 is crucial for flex child scrolling */}
-      <div className="flex-1 flex flex-col min-h-0 landscape:h-full justify-between gap-4">
+      {/* TEXT & CONTROLS CONTAINER */}
+      <div className="flex-grow landscape:w-1/2 flex flex-col justify-end gap-3 min-h-0">
         
-        {/* Info Box */}
-        <div className="flex-1 bg-[#1f0a0a] rounded-3xl border border-[#3d1a1a] p-6 overflow-y-auto hide-scrollbar flex flex-col items-center landscape:items-start text-center landscape:text-left shadow-lg">
+        {/* INFO BOX */}
+        <div className="flex-1 bg-[#1f0a0a] rounded-3xl border border-[#3d1a1a] p-4 landscape:p-6 overflow-hidden flex flex-col items-center landscape:items-start text-center landscape:text-left shadow-lg justify-center relative">
             
-            <h2 className="text-2xl md:text-3xl font-black text-[#ec1337] uppercase tracking-wide mb-4 leading-none">
+            {/* Title */}
+            <h2 className="font-black text-[#ec1337] uppercase tracking-wide mb-1 leading-none text-[clamp(1rem,2vh,1.5rem)]">
                 {currentStep.title}
             </h2>
 
-            {/* INGREDIENTS LIST */}
-            {currentStep.ingredientsInStep && currentStep.ingredientsInStep.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-6 justify-center landscape:justify-start">
-                    {currentStep.ingredientsInStep.map((ing, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-[#0f0505] border border-[#3d1a1a] px-3 py-1.5 rounded-xl shadow-sm">
-                            <span className="text-stone-300 text-xs font-bold">{ing.name}</span>
-                            <div className="h-4 w-px bg-[#3d1a1a]"></div>
-                            <span className="text-[#ec1337] text-xs font-black whitespace-nowrap">
-                                {convertUnitsInString(ing.amount, isMetric)}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <div className="flex-1 flex items-center">
-                 <p className="text-white text-lg md:text-xl font-medium leading-relaxed">
-                    <RichTextRenderer text={convertUnitsInString(currentStep.instruction, isMetric)} />
+            {/* Instruction Text */}
+            <div className="flex-1 flex items-center justify-center w-full min-h-0">
+                 <p className="text-white font-medium leading-tight text-[clamp(0.85rem,2vh,1.15rem)] overflow-y-auto max-h-full hide-scrollbar">
+                    <InstructionWithInlineIngredients 
+                        text={convertUnitsInString(currentStep.instruction, isMetric)}
+                        ingredients={currentStep.ingredientsInStep}
+                        isMetric={isMetric}
+                    />
                  </p>
             </div>
         </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex gap-4 flex-shrink-0">
+        {/* CONTROLS */}
+        <div className="flex gap-4 flex-shrink-0 h-16 landscape:h-20">
             <button 
                 onClick={() => { triggerHaptic('light'); mixingStep === 0 ? onBack() : onSetStep(mixingStep - 1); }} 
-                className="h-16 w-16 rounded-full bg-[#1f0a0a] border border-[#3d1a1a] text-stone-400 flex items-center justify-center hover:bg-[#2a1010] hover:text-white active:scale-95 transition-all shadow-lg"
+                className="h-full aspect-square rounded-full bg-[#1f0a0a] border border-[#3d1a1a] text-stone-400 flex items-center justify-center hover:bg-[#2a1010] hover:text-white active:scale-95 transition-all shadow-lg"
             >
                 <ChevronLeft size={28} />
             </button>
             <Button 
                 fullWidth 
                 onClick={() => { triggerHaptic('medium'); onSetStep(mixingStep + 1); }} 
-                className="flex-1 h-16 text-xl rounded-2xl shadow-lg shadow-[#ec1337]/20"
+                className="flex-1 h-full text-xl rounded-2xl shadow-lg shadow-[#ec1337]/20"
             >
                 {mixingStep === selectedCocktail.steps.length - 1 ? 'Finish Drink' : 'Next Step'}
             </Button>
