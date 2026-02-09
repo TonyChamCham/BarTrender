@@ -90,20 +90,6 @@ The app uses a hybrid asset system:
 - **SmartImage:** A component that tries to fetch images from Firebase Cache first, and falls back to AI Generation if missing.
 - **IngredientIcon:** Handles SVG icons for tools and ingredients, with automatic mapping (e.g., "Coupe Glass" -> `coupe.svg`).
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-Distributed under the MIT License.
-
 ---
 
 *Made with 🍸 and Code.*
