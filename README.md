@@ -3,9 +3,9 @@
 
 **BarTrender** is a next-generation cocktail application powered by **Google Gemini 3**. It goes beyond simple recipes by offering an AI-driven mixology experience, including real-time visual recognition, personalized bartender chat personas, and generative media.
 
-![Project Status](https://img.shields.io/badge/Status-Portfolio_Showcase-blueviolet)
-![AI Model](https://img.shields.io/badge/AI-Gemini_3_Pro_%2F_Flash-blue)
-![Tech](https://img.shields.io/badge/Stack-React_%7C_Vite_%7C_Firebase-orange)
+![Project Status](https://img.shields.io/badge/Status-Hackathon_Submission-orange)
+![License](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey)
+![Author](https://img.shields.io/badge/Author-Open_to_Work-green)
 
 ## ✨ Key Features
 
@@ -58,17 +58,25 @@ The app uses a hybrid asset system:
 - **SmartImage:** A component that tries to fetch images from Firebase Cache first, and falls back to AI Generation if missing.
 - **IngredientIcon:** Handles SVG icons for tools and ingredients, with automatic mapping (e.g., "Coupe Glass" -> `coupe.svg`).
 
-## ⚠️ Legal & License
+## ⚠️ License & Rights
 
-**© 2024 BarTrender. All Rights Reserved.**
+**© 2024 BarTrender.**
 
-This repository is a **portfolio demonstration**. The code, design, and intellectual property belong to the author.
+This project is submitted for **Hackathon Evaluation Purposes Only**.
 
-- **You may** view the code for educational purposes or hiring evaluation.
-- **You may NOT** copy, distribute, modify, or use this code for commercial or non-commercial purposes without explicit written permission.
-- **You may NOT** use this application to train AI models.
+This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/4.0/">Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License</a>.
 
-For any inquiries or hiring opportunities, please contact the repository owner directly.
+**You are free to:**
+- **Share** — copy and redistribute the material in any medium or format.
+
+**Under the following terms:**
+- **Attribution** — You must give appropriate credit to the author.
+- **NonCommercial** — You may NOT use this material for commercial purposes (selling, monetizing, or integrating into a paid product).
+- **NoDerivatives** — If you remix, transform, or build upon the material, you may not distribute the modified material.
+
+> **Note for Recruiters:** The source code serves as a portfolio piece demonstrating proficiency in React, TypeScript, AI Integration (Gemini/Vertex AI), and Firebase.
+
+For any inquiries, collaboration, or hiring opportunities, please contact the repository owner directly.
 
 ---
 
